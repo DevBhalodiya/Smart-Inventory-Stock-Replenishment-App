@@ -1,7 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  ////////////////////////////////////////////////////////////////
+  /// HIVE INIT
+  ////////////////////////////////////////////////////////////////
+
+  await Hive.initFlutter();
+
+  await Hive.openBox('inventoryBox');
+
   runApp(
     ChangeNotifierProvider(
       create: (_) => ProductProvider(),
@@ -64,11 +75,75 @@ class ProductProvider extends ChangeNotifier {
   List<StockRecord> get records => _records;
 
   ////////////////////////////////////////////////////////////////
+  /// CONSTRUCTOR
+  ////////////////////////////////////////////////////////////////
+
+  ProductProvider() {
+    loadProducts();
+  }
+
+  ////////////////////////////////////////////////////////////////
+  /// SAVE PRODUCTS
+  ////////////////////////////////////////////////////////////////
+
+  Future<void> saveProducts() async {
+    final box = Hive.box('inventoryBox');
+
+    List<Map<String, dynamic>> productData =
+        _products.map((product) {
+      return {
+        'id': product.id,
+        'name': product.name,
+        'category': product.category,
+        'quantity': product.quantity,
+        'minThreshold': product.minThreshold,
+      };
+    }).toList();
+
+    await box.put(
+      'products',
+      productData,
+    );
+  }
+
+  ////////////////////////////////////////////////////////////////
+  /// LOAD PRODUCTS
+  ////////////////////////////////////////////////////////////////
+
+  Future<void> loadProducts() async {
+    final box = Hive.box('inventoryBox');
+
+    final data = box.get('products');
+
+    if (data != null) {
+      _products.clear();
+
+      for (var item in data) {
+        _products.add(
+          Product(
+            id: item['id'],
+            name: item['name'],
+            category: item['category'],
+            quantity: item['quantity'],
+            minThreshold:
+                item['minThreshold'],
+          ),
+        );
+      }
+
+      notifyListeners();
+    }
+  }
+
+  ////////////////////////////////////////////////////////////////
   /// ADD PRODUCT
   ////////////////////////////////////////////////////////////////
 
   void addProduct(Product product) {
     _products.add(product);
+
+    saveProducts();
+
     notifyListeners();
   }
 
@@ -77,7 +152,12 @@ class ProductProvider extends ChangeNotifier {
   ////////////////////////////////////////////////////////////////
 
   void deleteProduct(String id) {
-    _products.removeWhere((p) => p.id == id);
+    _products.removeWhere(
+      (p) => p.id == id,
+    );
+
+    saveProducts();
+
     notifyListeners();
   }
 
@@ -85,7 +165,10 @@ class ProductProvider extends ChangeNotifier {
   /// STOCK IN
   ////////////////////////////////////////////////////////////////
 
-  void stockIn(String productId, int amount) {
+  void stockIn(
+    String productId,
+    int amount,
+  ) {
     final product = _products.firstWhere(
       (e) => e.id == productId,
     );
@@ -103,6 +186,8 @@ class ProductProvider extends ChangeNotifier {
       ),
     );
 
+    saveProducts();
+
     notifyListeners();
   }
 
@@ -110,7 +195,10 @@ class ProductProvider extends ChangeNotifier {
   /// STOCK OUT
   ////////////////////////////////////////////////////////////////
 
-  void stockOut(String productId, int amount) {
+  void stockOut(
+    String productId,
+    int amount,
+  ) {
     final product = _products.firstWhere(
       (e) => e.id == productId,
     );
@@ -129,6 +217,8 @@ class ProductProvider extends ChangeNotifier {
         ),
       );
 
+      saveProducts();
+
       notifyListeners();
     }
   }
@@ -138,11 +228,11 @@ class ProductProvider extends ChangeNotifier {
   ////////////////////////////////////////////////////////////////
 
   int get lowStockCount {
-    return _products
-        .where(
-          (p) => p.quantity <= p.minThreshold,
-        )
-        .length;
+    return _products.where(
+      (p) =>
+          p.quantity <=
+          p.minThreshold,
+    ).length;
   }
 }
 
@@ -178,7 +268,8 @@ class HomeScreen extends StatefulWidget {
       _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState
+    extends State<HomeScreen> {
 
   ////////////////////////////////////////////////////////////////
   /// SEARCH VARIABLE
@@ -191,7 +282,6 @@ class _HomeScreenState extends State<HomeScreen> {
   ////////////////////////////////////////////////////////////////
 
   void showAddProductDialog() {
-
     TextEditingController nameController =
         TextEditingController();
 
@@ -213,10 +303,10 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       builder: (_) {
-
         return AlertDialog(
-
-          title: const Text("Add Product"),
+          title: const Text(
+            "Add Product",
+          ),
 
           content: SingleChildScrollView(
             child: Column(
@@ -236,26 +326,32 @@ class _HomeScreenState extends State<HomeScreen> {
                       categoryController,
                   decoration:
                       const InputDecoration(
-                    labelText: "Category",
+                    labelText:
+                        "Category",
                   ),
                 ),
 
                 TextField(
                   controller:
                       quantityController,
+
                   keyboardType:
                       TextInputType.number,
+
                   decoration:
                       const InputDecoration(
-                    labelText: "Quantity",
+                    labelText:
+                        "Quantity",
                   ),
                 ),
 
                 TextField(
                   controller:
                       thresholdController,
+
                   keyboardType:
                       TextInputType.number,
+
                   decoration:
                       const InputDecoration(
                     labelText:
@@ -275,12 +371,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 /// VALIDATION
                 //////////////////////////////////////////////////////
 
-                if (nameController.text.trim().isEmpty ||
-                    categoryController.text.trim().isEmpty ||
-                    quantityController.text.trim().isEmpty ||
-                    thresholdController.text.trim().isEmpty) {
+                if (nameController.text
+                        .trim()
+                        .isEmpty ||
+                    categoryController.text
+                        .trim()
+                        .isEmpty ||
+                    quantityController.text
+                        .trim()
+                        .isEmpty ||
+                    thresholdController.text
+                        .trim()
+                        .isEmpty) {
 
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(
+                          context)
+                      .showSnackBar(
+
                     const SnackBar(
                       content: Text(
                         "All fields are required",
@@ -291,25 +398,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   return;
                 }
 
-                //////////////////////////////////////////////////////
-                /// PARSE VALUES
-                //////////////////////////////////////////////////////
-
-                int? quantity = int.tryParse(
+                int? quantity =
+                    int.tryParse(
                   quantityController.text,
                 );
 
-                int? threshold = int.tryParse(
+                int? threshold =
+                    int.tryParse(
                   thresholdController.text,
                 );
 
-                //////////////////////////////////////////////////////
-                /// CHECK INVALID NUMBERS
-                //////////////////////////////////////////////////////
+                if (quantity == null ||
+                    threshold == null) {
 
-                if (quantity == null || threshold == null) {
+                  ScaffoldMessenger.of(
+                          context)
+                      .showSnackBar(
 
-                  ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text(
                         "Enter valid numeric values",
@@ -320,13 +425,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   return;
                 }
 
-                //////////////////////////////////////////////////////
-                /// NEGATIVE VALIDATION
-                //////////////////////////////////////////////////////
+                if (quantity < 0 ||
+                    threshold < 0) {
 
-                if (quantity < 0 || threshold < 0) {
+                  ScaffoldMessenger.of(
+                          context)
+                      .showSnackBar(
 
-                  ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text(
                         "Negative values are not allowed",
@@ -343,18 +448,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 provider.addProduct(
                   Product(
-                    id: DateTime.now().toString(),
-                    name: nameController.text,
-                    category: categoryController.text,
-                    quantity: quantity,
-                    minThreshold: threshold,
+                    id: DateTime.now()
+                        .toString(),
+
+                    name:
+                        nameController.text,
+
+                    category:
+                        categoryController
+                            .text,
+
+                    quantity:
+                        quantity,
+
+                    minThreshold:
+                        threshold,
                   ),
                 );
 
                 Navigator.pop(context);
               },
 
-              child: const Text("Add"),
+              child: const Text(
+                "Add",
+              ),
             ),
           ],
         );
@@ -410,17 +527,21 @@ class _HomeScreenState extends State<HomeScreen> {
             ElevatedButton(
               onPressed: () {
 
-                //////////////////////////////////////////////////////
-                /// VALIDATE STOCK VALUE
-                //////////////////////////////////////////////////////
-
                 int? qty = int.tryParse(
                   qtyController.text,
                 );
 
-                if (qty == null || qty <= 0) {
+                //////////////////////////////////////////////////////
+                /// VALIDATION
+                //////////////////////////////////////////////////////
 
-                  ScaffoldMessenger.of(context).showSnackBar(
+                if (qty == null ||
+                    qty <= 0) {
+
+                  ScaffoldMessenger.of(
+                          context)
+                      .showSnackBar(
+
                     const SnackBar(
                       content: Text(
                         "Enter valid positive quantity",
@@ -445,6 +566,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ScaffoldMessenger.of(
                           context)
                       .showSnackBar(
+
                     SnackBar(
                       content: Text(
                         "$qty items added",
@@ -470,6 +592,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ScaffoldMessenger.of(
                             context)
                         .showSnackBar(
+
                       SnackBar(
                         content: Text(
                           "$qty items sold",
@@ -483,6 +606,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ScaffoldMessenger.of(
                             context)
                         .showSnackBar(
+
                       const SnackBar(
                         content: Text(
                           "Not enough stock",
@@ -522,23 +646,28 @@ class _HomeScreenState extends State<HomeScreen> {
     ////////////////////////////////////////////////////////////////
 
     final filteredProducts =
-        provider.products.where((product) {
+        provider.products.where(
+      (product) {
 
-      return product.name
-              .toLowerCase()
-              .contains(
-                searchQuery.toLowerCase(),
-              ) ||
+        return product.name
+                .toLowerCase()
+                .contains(
+                  searchQuery.toLowerCase(),
+                ) ||
 
-          product.category
-              .toLowerCase()
-              .contains(
-                searchQuery.toLowerCase(),
-              );
-
-    }).toList();
+            product.category
+                .toLowerCase()
+                .contains(
+                  searchQuery.toLowerCase(),
+                );
+      },
+    ).toList();
 
     return Scaffold(
+
+      //////////////////////////////////////////////////////////////
+      /// APP BAR
+      //////////////////////////////////////////////////////////////
 
       appBar: AppBar(
 
@@ -549,12 +678,15 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
 
           IconButton(
-            icon:
-                const Icon(Icons.history),
+
+            icon: const Icon(
+              Icons.history,
+            ),
 
             onPressed: () {
 
               Navigator.push(
+
                 context,
 
                 MaterialPageRoute(
@@ -686,7 +818,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   : ListView.builder(
 
                       itemCount:
-                          filteredProducts.length,
+                          filteredProducts
+                              .length,
 
                       itemBuilder:
                           (context, index) {
@@ -854,6 +987,7 @@ class _HomeScreenState extends State<HomeScreen> {
 ////////////////////////////////////////////////////////////////
 
 class HistoryScreen extends StatelessWidget {
+
   const HistoryScreen({super.key});
 
   @override
@@ -867,8 +1001,10 @@ class HistoryScreen extends StatelessWidget {
     return Scaffold(
 
       appBar: AppBar(
-        title:
-            const Text("Stock History"),
+
+        title: const Text(
+          "Stock History",
+        ),
       ),
 
       body: provider.records.isEmpty
@@ -898,25 +1034,37 @@ class HistoryScreen extends StatelessWidget {
                       record.productId,
                 );
 
-                return ListTile(
+                return Card(
 
-                  leading: Icon(
+                  margin:
+                      const EdgeInsets.all(8),
 
-                    record.isIn
-                        ? Icons.arrow_downward
-                        : Icons.arrow_upward,
+                  child: ListTile(
 
-                    color: record.isIn
-                        ? Colors.green
-                        : Colors.red,
-                  ),
+                    leading: Icon(
 
-                  title: Text(
-                    product.name,
-                  ),
+                      record.isIn
+                          ? Icons.arrow_downward
+                          : Icons.arrow_upward,
 
-                  subtitle: Text(
-                    "${record.isIn ? "Stock In" : "Stock Out"} | Qty: ${record.amount}",
+                      color: record.isIn
+                          ? Colors.green
+                          : Colors.red,
+                    ),
+
+                    title: Text(
+                      product.name,
+                    ),
+
+                    subtitle: Text(
+
+                      "${record.isIn ? "Stock In" : "Stock Out"} | Qty: ${record.amount}",
+                    ),
+
+                    trailing: Text(
+
+                      "${record.date.hour}:${record.date.minute}",
+                    ),
                   ),
                 );
               },
