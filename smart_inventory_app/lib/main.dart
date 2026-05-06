@@ -157,13 +157,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-
       title: 'Smart Inventory App',
-
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-
       home: const HomeScreen(),
     );
   }
@@ -274,28 +271,83 @@ class _HomeScreenState extends State<HomeScreen> {
             ElevatedButton(
               onPressed: () {
 
+                //////////////////////////////////////////////////////
+                /// VALIDATION
+                //////////////////////////////////////////////////////
+
+                if (nameController.text.trim().isEmpty ||
+                    categoryController.text.trim().isEmpty ||
+                    quantityController.text.trim().isEmpty ||
+                    thresholdController.text.trim().isEmpty) {
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "All fields are required",
+                      ),
+                    ),
+                  );
+
+                  return;
+                }
+
+                //////////////////////////////////////////////////////
+                /// PARSE VALUES
+                //////////////////////////////////////////////////////
+
+                int? quantity = int.tryParse(
+                  quantityController.text,
+                );
+
+                int? threshold = int.tryParse(
+                  thresholdController.text,
+                );
+
+                //////////////////////////////////////////////////////
+                /// CHECK INVALID NUMBERS
+                //////////////////////////////////////////////////////
+
+                if (quantity == null || threshold == null) {
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Enter valid numeric values",
+                      ),
+                    ),
+                  );
+
+                  return;
+                }
+
+                //////////////////////////////////////////////////////
+                /// NEGATIVE VALIDATION
+                //////////////////////////////////////////////////////
+
+                if (quantity < 0 || threshold < 0) {
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Negative values are not allowed",
+                      ),
+                    ),
+                  );
+
+                  return;
+                }
+
+                //////////////////////////////////////////////////////
+                /// ADD PRODUCT
+                //////////////////////////////////////////////////////
+
                 provider.addProduct(
                   Product(
-                    id: DateTime.now()
-                        .toString(),
-
-                    name:
-                        nameController.text,
-
-                    category:
-                        categoryController
-                            .text,
-
-                    quantity: int.parse(
-                      quantityController
-                          .text,
-                    ),
-
-                    minThreshold:
-                        int.parse(
-                      thresholdController
-                          .text,
-                    ),
+                    id: DateTime.now().toString(),
+                    name: nameController.text,
+                    category: categoryController.text,
+                    quantity: quantity,
+                    minThreshold: threshold,
                   ),
                 );
 
@@ -358,13 +410,30 @@ class _HomeScreenState extends State<HomeScreen> {
             ElevatedButton(
               onPressed: () {
 
-                int qty = int.parse(
+                //////////////////////////////////////////////////////
+                /// VALIDATE STOCK VALUE
+                //////////////////////////////////////////////////////
+
+                int? qty = int.tryParse(
                   qtyController.text,
                 );
 
-                //////////////////////////////////////////////////
+                if (qty == null || qty <= 0) {
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Enter valid positive quantity",
+                      ),
+                    ),
+                  );
+
+                  return;
+                }
+
+                //////////////////////////////////////////////////////
                 /// STOCK IN
-                //////////////////////////////////////////////////
+                //////////////////////////////////////////////////////
 
                 if (isIn) {
 
@@ -384,9 +453,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 }
 
-                //////////////////////////////////////////////////
+                //////////////////////////////////////////////////////
                 /// STOCK OUT
-                //////////////////////////////////////////////////
+                //////////////////////////////////////////////////////
 
                 else {
 
@@ -449,7 +518,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     ////////////////////////////////////////////////////////////////
-    /// FILTERED PRODUCTS
+    /// FILTER PRODUCTS
     ////////////////////////////////////////////////////////////////
 
     final filteredProducts =
@@ -517,7 +586,7 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: InputDecoration(
 
                 hintText:
-                    "Search by name or category",
+                    "Search by product or category",
 
                 prefixIcon:
                     const Icon(Icons.search),
