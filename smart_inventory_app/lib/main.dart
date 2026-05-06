@@ -184,6 +184,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
 
   ////////////////////////////////////////////////////////////////
+  /// SEARCH VARIABLE
+  ////////////////////////////////////////////////////////////////
+
+  String searchQuery = "";
+
+  ////////////////////////////////////////////////////////////////
   /// ADD PRODUCT DIALOG
   ////////////////////////////////////////////////////////////////
 
@@ -442,6 +448,27 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
     );
 
+    ////////////////////////////////////////////////////////////////
+    /// FILTERED PRODUCTS
+    ////////////////////////////////////////////////////////////////
+
+    final filteredProducts =
+        provider.products.where((product) {
+
+      return product.name
+              .toLowerCase()
+              .contains(
+                searchQuery.toLowerCase(),
+              ) ||
+
+          product.category
+              .toLowerCase()
+              .contains(
+                searchQuery.toLowerCase(),
+              );
+
+    }).toList();
+
     return Scaffold(
 
       appBar: AppBar(
@@ -480,6 +507,38 @@ class _HomeScreenState extends State<HomeScreen> {
 
         child: Column(
           children: [
+
+            ////////////////////////////////////////////////////////
+            /// SEARCH BAR
+            ////////////////////////////////////////////////////////
+
+            TextField(
+
+              decoration: InputDecoration(
+
+                hintText:
+                    "Search by name or category",
+
+                prefixIcon:
+                    const Icon(Icons.search),
+
+                border: OutlineInputBorder(
+                  borderRadius:
+                      BorderRadius.circular(12),
+                ),
+              ),
+
+              onChanged: (value) {
+
+                setState(() {
+
+                  searchQuery = value;
+
+                });
+              },
+            ),
+
+            const SizedBox(height: 15),
 
             ////////////////////////////////////////////////////////
             /// DASHBOARD CARD
@@ -547,25 +606,24 @@ class _HomeScreenState extends State<HomeScreen> {
 
             Expanded(
 
-              child: provider.products.isEmpty
+              child: filteredProducts.isEmpty
 
                   ? const Center(
                       child: Text(
-                        "No Products Added",
+                        "No Products Found",
                       ),
                     )
 
                   : ListView.builder(
 
                       itemCount:
-                          provider.products
-                              .length,
+                          filteredProducts.length,
 
                       itemBuilder:
                           (context, index) {
 
                         final product =
-                            provider.products[
+                            filteredProducts[
                                 index];
 
                         ////////////////////////////////////////////////////
